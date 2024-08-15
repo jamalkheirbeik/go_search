@@ -6,7 +6,7 @@ import (
 )
 
 func list_commands() {
-	fmt.Println("Usage <subcommand> [args]")
+	fmt.Println("Usage <program> <subcommand> [args]")
 	fmt.Println("    index <directory>           recursively indexes all files in directory and generates an index.json file containing frequency table")
 	fmt.Println("    search <query>              TF-IDF search within index.json and returns documents matching that query sorted from most relative to least")
 	fmt.Println("    serve                       Serves a local HTTP server on port 8080")
