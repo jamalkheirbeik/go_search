@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"path/filepath"
 	"sort"
 	"time"
 )
@@ -24,18 +23,6 @@ type doc struct {
 type docs = map[string]doc
 
 type tf = map[string]int
-
-func read_text_file(file_path string) string {
-	data, err := os.ReadFile(file_path)
-	if err != nil {
-		fmt.Printf("ERROR: could not read text file '%s'. %s\n", file_path, err)
-		return ""
-	} else {
-		str := string(data)
-		fmt.Printf("'%s' => %d\n", file_path, len(str))
-		return str
-	}
-}
 
 func index_file(lexer *lexer, m *model, file_path string) {
 	for len(lexer.content) > 0 {
@@ -85,25 +72,9 @@ func add_dir_files_to_model(directory string, m *model) {
 			if entry.IsDir() {
 				add_dir_files_to_model(directory+"/"+entry.Name(), m)
 			} else {
-				extension := filepath.Ext(entry.Name())
 				file_path := directory + "/" + entry.Name()
-				switch extension {
-				case ".txt":
-					lexer := lexer{read_text_file(file_path)}
-					index_file(&lexer, m, file_path)
-				case ".md":
-					fmt.Println("TODO: Parse markdown documents")
-				case ".xml":
-					fmt.Println("TODO: Parse XML documents")
-				case ".xhtml":
-					fmt.Println("TODO: Parse XHTML documents")
-				case ".html":
-					fmt.Println("TODO: Parse HTML documents")
-				case ".pdf":
-					fmt.Println("TODO: Parse PDF documents")
-				default:
-					fmt.Printf("ERROR: Extension '%s' is not supported\n", extension)
-				}
+				lexer := lexer{parse_file_by_extension(file_path)}
+				index_file(&lexer, m, file_path)
 			}
 		}
 	}
