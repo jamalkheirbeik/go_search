@@ -33,31 +33,42 @@ func parse_text_file(file_path string) string {
 	}
 }
 
-func parse_xml_file(file_path string) string {
+func array_contains_string(arr []string, target string) bool {
+	for _, str := range arr {
+		if str == target {
+			return true
+		}
+	}
+	return false
+}
+
+func parse_xml_file(file_path string, strict_mode bool, excluded_tags ...string) string {
+	var result string
 	data, err := os.ReadFile(file_path)
 	if err != nil {
-		fmt.Printf("ERROR: could not read xml file '%s'. %s\n", file_path, err)
-		return ""
+		fmt.Printf("ERROR: cannot read file '%s'. %s\n", file_path, err)
 	} else {
-		var result string
 		buff := bytes.NewBuffer(data)
 		dec := xml.NewDecoder(buff)
+		dec.Strict = strict_mode
 		var n node
 		err := dec.Decode(&n)
 		if err != nil {
-			fmt.Printf("ERROR: cannot decode xml node. %s", err)
+			fmt.Printf("ERROR: cannot decode node. %s\n", err)
 		} else {
 			iterate_xml_nodes([]node{n}, func(n node) bool {
-				content := string(n.Content)
-				content = strings.TrimLeft(content, " \r\n\t")
-				if len(content) > 0 && string(content[0]) != "<" {
-					result += content + "\n"
+				if !array_contains_string(excluded_tags, n.XMLName.Local) {
+					content := string(n.Content)
+					content = strings.TrimLeft(content, " \r\n\t")
+					if len(content) > 0 && string(content[0]) != "<" {
+						result += content + "\n"
+					}
 				}
 				return true
 			})
 		}
-		return result
 	}
+	return result
 }
 
 func parse_file_by_extension(file_path string) string {
@@ -67,15 +78,13 @@ func parse_file_by_extension(file_path string) string {
 	case ".txt", ".md":
 		result = parse_text_file(file_path)
 	case ".xml":
-		result = parse_xml_file(file_path)
-	case ".xhtml":
-		fmt.Println("TODO: Parse XHTML documents")
-	case ".html":
-		fmt.Println("TODO: Parse HTML documents")
+		result = parse_xml_file(file_path, true)
+	case ".xhtml", ".html", ".htm":
+		result = parse_xml_file(file_path, false, "style", "script")
 	case ".pdf":
 		fmt.Println("TODO: Parse PDF documents")
 	default:
-		fmt.Printf("ERROR: Extension '%s' is not supported\n", extension)
+		// fmt.Printf("ERROR: Extension '%s' is not supported\n", extension)
 	}
 	return result
 }

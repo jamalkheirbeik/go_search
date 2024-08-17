@@ -139,7 +139,11 @@ func search(query string) {
 		sort.Slice(tmp, func(i, j int) bool {
 			return tmp[i].Value > tmp[j].Value
 		})
-		for _, kv := range tmp {
+		for i, kv := range tmp {
+			// get 10 documents only for ease of testing
+			if i == 10 {
+				break
+			}
 			fmt.Printf("    %s => %f\n", kv.Key, kv.Value)
 		}
 	}
