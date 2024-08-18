@@ -36,7 +36,7 @@ func index_file(lexer *lexer, m *model, file_path string) {
 			info, err := os.Stat(file_path)
 			var last_modified time.Time
 			if err != nil {
-				fmt.Printf("ERROR: could not access file info. %s\n", err)
+				fmt.Printf("ERROR: cannot access file info. %s\n", err)
 				last_modified = time.Now()
 			} else {
 				last_modified = info.ModTime()
@@ -108,7 +108,7 @@ func calculate_idf(term string, m model) float64 {
 func search(query string) {
 	data, err := os.ReadFile("index.json")
 	if err != nil {
-		fmt.Printf("ERROR: could not read 'index.json' file. %s\n", err)
+		fmt.Printf("ERROR: cannot read 'index.json' file. %s\n", err)
 	} else {
 		var m model
 		json.Unmarshal(data, &m)

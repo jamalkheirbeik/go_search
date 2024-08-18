@@ -26,13 +26,14 @@ func iterate_xml_nodes(nodes []node, f func(node) bool) {
 }
 
 func parse_text_file(file_path string) string {
+	var result string
 	data, err := os.ReadFile(file_path)
 	if err != nil {
 		fmt.Printf("ERROR: cannot read text file '%s'. %s\n", file_path, err)
-		return ""
 	} else {
-		return string(data)
+		result = string(data)
 	}
+	return result
 }
 
 func array_contains_string(arr []string, target string) bool {
@@ -74,7 +75,7 @@ func parse_xml_file(file_path string, strict_mode bool, excluded_tags ...string)
 }
 
 func parse_pdf_file(file_path string) string {
-	pdf.DebugOn = true
+	// pdf.DebugOn = true
 	var result string
 	f, r, err := pdf.Open(file_path)
 	if err != nil {
