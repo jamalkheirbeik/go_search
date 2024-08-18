@@ -62,6 +62,15 @@ func index_file(lexer *lexer, m *model, file_path string) {
 	}
 }
 
+func remove_file_from_model(m *model, file_path string) {
+	for key := range m.TFPD[file_path].TF {
+		if m.DF[key] != 0 {
+			m.DF[key] -= 1
+		}
+	}
+	delete(m.TFPD, file_path)
+}
+
 func add_dir_files_to_model(directory string, m *model) {
 	fmt.Printf("reading files in directory '%s'...\n", directory)
 	entries, err := os.ReadDir(directory)
@@ -73,8 +82,12 @@ func add_dir_files_to_model(directory string, m *model) {
 				add_dir_files_to_model(directory+"/"+entry.Name(), m)
 			} else {
 				file_path := directory + "/" + entry.Name()
-				lexer := lexer{parse_file_by_extension(file_path)}
-				index_file(&lexer, m, file_path)
+				stats, err := os.Stat(file_path)
+				if err != nil || stats.ModTime().After(m.TFPD[file_path].LAST_MODIFIED) {
+					remove_file_from_model(m, file_path)
+					lexer := lexer{parse_file_by_extension(file_path)}
+					index_file(&lexer, m, file_path)
+				}
 			}
 		}
 	}
@@ -82,6 +95,8 @@ func add_dir_files_to_model(directory string, m *model) {
 
 func generate_index_file(directory string) {
 	document := model{TFPD: make(map[string]doc), DF: make(map[string]int)}
+	data, _ := os.ReadFile("index.json")
+	json.Unmarshal(data, &document)
 	add_dir_files_to_model(directory, &document)
 	bytes, _ := json.Marshal(document)
 	err := os.WriteFile("index.json", bytes, 0644)
