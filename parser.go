@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/ledongthuc/pdf"
 )
 
 type node struct {
@@ -26,7 +28,7 @@ func iterate_xml_nodes(nodes []node, f func(node) bool) {
 func parse_text_file(file_path string) string {
 	data, err := os.ReadFile(file_path)
 	if err != nil {
-		fmt.Printf("ERROR: could not read text file '%s'. %s\n", file_path, err)
+		fmt.Printf("ERROR: cannot read text file '%s'. %s\n", file_path, err)
 		return ""
 	} else {
 		return string(data)
@@ -54,7 +56,7 @@ func parse_xml_file(file_path string, strict_mode bool, excluded_tags ...string)
 		var n node
 		err := dec.Decode(&n)
 		if err != nil {
-			fmt.Printf("ERROR: cannot decode node. %s\n", err)
+			fmt.Printf("ERROR: cannot decode node in file '%s'. %s\n", file_path, err)
 		} else {
 			iterate_xml_nodes([]node{n}, func(n node) bool {
 				if !array_contains_string(excluded_tags, n.XMLName.Local) {
@@ -71,6 +73,26 @@ func parse_xml_file(file_path string, strict_mode bool, excluded_tags ...string)
 	return result
 }
 
+func parse_pdf_file(file_path string) string {
+	pdf.DebugOn = true
+	var result string
+	f, r, err := pdf.Open(file_path)
+	if err != nil {
+		fmt.Printf("ERROR: cannot parse file '%s'. %s\n", file_path, err)
+	} else {
+		var buf bytes.Buffer
+		b, err := r.GetPlainText()
+		if err != nil {
+			fmt.Printf("ERROR: cannot get plain text from file '%s'. %s\n", file_path, err)
+		} else {
+			buf.ReadFrom(b)
+			result = buf.String()
+		}
+	}
+	f.Close()
+	return result
+}
+
 func parse_file_by_extension(file_path string) string {
 	var result string
 	extension := filepath.Ext(file_path)
@@ -82,9 +104,9 @@ func parse_file_by_extension(file_path string) string {
 	case ".xhtml", ".html", ".htm":
 		result = parse_xml_file(file_path, false, "style", "script")
 	case ".pdf":
-		fmt.Println("TODO: Parse PDF documents")
+		result = parse_pdf_file(file_path)
 	default:
-		// fmt.Printf("ERROR: Extension '%s' is not supported\n", extension)
+		fmt.Printf("ERROR: files with extension '%s' are not supported and will be ignored.\n", extension)
 	}
 	return result
 }
