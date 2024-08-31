@@ -34,7 +34,7 @@ func main() {
 					search(query, page)
 				}
 			} else {
-				fmt.Println("ERROR: search query is not provided")
+				fmt.Println("ERROR: Missing arguements. Use the help command to check out the usage.")
 			}
 		case "serve":
 			port := "8080"
