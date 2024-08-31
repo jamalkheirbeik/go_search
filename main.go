@@ -3,13 +3,14 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 )
 
 func list_commands() {
 	fmt.Println("Usage <program> <subcommand> [args]")
 	fmt.Println("    index <directory>           recursively indexes all files in directory and generates an index.json file containing frequency table")
-	fmt.Println("    search <query>              TF-IDF search within index.json and returns documents matching that query sorted from most relative to least")
-	fmt.Println("    serve                       Serves a local HTTP server on port 8080")
+	fmt.Println("    search <query> <page>       Searches within index.json, ranks the result using TF-IDF, divides the result into pages and returns the data related to the provided page")
+	fmt.Println("    serve [port]                Serves a local HTTP server on port 8080 by default")
 }
 
 func main() {
@@ -24,11 +25,23 @@ func main() {
 				fmt.Println("ERROR: No directory has been provided")
 			}
 		case "search":
-			if len(os.Args) > 2 {
-				search(os.Args[2])
+			if len(os.Args) > 3 {
+				query := os.Args[2]
+				if len(query) == 0 {
+					fmt.Println("ERROR: search query cannot be empty")
+				} else {
+					page, _ := strconv.Atoi(os.Args[3])
+					search(query, page)
+				}
 			} else {
 				fmt.Println("ERROR: search query is not provided")
 			}
+		case "serve":
+			port := "8080"
+			if len(os.Args) > 2 {
+				port = os.Args[2]
+			}
+			serve(port)
 		default:
 			fmt.Println("ERROR: Unknown subcommand, to list available commands run 'go run main.go help'")
 		}

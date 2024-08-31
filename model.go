@@ -24,6 +24,11 @@ type docs = map[string]doc
 
 type tf = map[string]int
 
+type searchResult struct {
+	Pages int
+	Data  []string
+}
+
 func index_file(lexer *lexer, m *model, file_path string) {
 	for len(lexer.content) > 0 {
 		token, err := next_token(lexer)
@@ -120,7 +125,12 @@ func calculate_idf(term string, m model) float64 {
 	return math.Log(float64(a) / float64(b))
 }
 
-func search(query string) {
+func search(query string, page_number int) string {
+	const MAX_ITEMS_PER_PAGE = 10
+	if page_number <= 0 {
+		page_number = 1
+	}
+	result := &searchResult{Pages: 0, Data: make([]string, 0)}
 	data, err := os.ReadFile("index.json")
 	if err != nil {
 		fmt.Printf("ERROR: cannot read 'index.json' file. %s\n", err)
@@ -128,7 +138,7 @@ func search(query string) {
 		var m model
 		json.Unmarshal(data, &m)
 
-		result := make(map[string]float64)
+		ranks := make(map[string]float64)
 		for file_path := range m.TFPD {
 			lexer := lexer{content: query}
 			var rank float64 = 0
@@ -139,27 +149,36 @@ func search(query string) {
 				}
 				rank += calculate_tf(token, m.TFPD[file_path]) * calculate_idf(token, m)
 			}
-			result[file_path] = rank
-		}
-		// sorting result
-		type kv struct {
-			Key   string
-			Value float64
-		}
-		var tmp []kv
-		for k, v := range result {
-			tmp = append(tmp, kv{k, v})
+			ranks[file_path] = rank
 		}
 
-		sort.Slice(tmp, func(i, j int) bool {
-			return tmp[i].Value > tmp[j].Value
-		})
-		for i, kv := range tmp {
-			// get 10 documents only for ease of testing
-			if i == 10 {
-				break
+		result.Pages = int(math.Ceil(float64(len(ranks)) / float64(MAX_ITEMS_PER_PAGE)))
+		if page_number <= result.Pages {
+			// sorting ranks
+			type kv struct {
+				Key   string
+				Value float64
 			}
-			fmt.Printf("    %s => %f\n", kv.Key, kv.Value)
+			var tmp []kv
+			for k, v := range ranks {
+				tmp = append(tmp, kv{k, v})
+			}
+
+			sort.Slice(tmp, func(i, j int) bool {
+				return tmp[i].Value > tmp[j].Value
+			})
+			// fetching data within page scope
+			start := (page_number - 1) * MAX_ITEMS_PER_PAGE
+			end := start + MAX_ITEMS_PER_PAGE
+			if end >= len(tmp) {
+				end = len(tmp)
+			}
+			for i := start; i < end; i++ {
+				fmt.Printf("    %s => %f\n", tmp[i].Key, tmp[i].Value)
+				result.Data = append(result.Data, tmp[i].Key)
+			}
 		}
 	}
+	b, _ := json.Marshal(result)
+	return string(b)
 }
