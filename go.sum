@@ -1,2 +1,6 @@
 github.com/ledongthuc/pdf v0.0.0-20240201131950-da5b75280b06 h1:kacRlPN7EN++tVpGUorNGPn/4DnB7/DfTY82AOn6ccU=
 github.com/ledongthuc/pdf v0.0.0-20240201131950-da5b75280b06/go.mod h1:imJHygn/1yfhB7XSJJKlFZKl/J+dCPAknuiaGOshXAs=
+github.com/mattn/go-sqlite3 v1.14.22 h1:2gZY6PC6kBnID23Tichd1K+Z0oS6nE/XwU+Vz/5o4kU=
+github.com/mattn/go-sqlite3 v1.14.22/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxUwlHK0RXw+Y=
+github.com/snowballstem/snowball v2.2.0+incompatible h1:4zjXJYalSrWr0K8Lx/lYKR2rIav+6knzKG2d50bzvEI=
+github.com/snowballstem/snowball v2.2.0+incompatible/go.mod h1:DL0Glx7rmkknCOUGQoFXkCAhjBrbffCi2A6lAKJfXXw=
