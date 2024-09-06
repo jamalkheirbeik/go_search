@@ -7,9 +7,27 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/ledongthuc/pdf"
 )
+
+type file struct {
+	path          string
+	extension     string
+	last_modified time.Time
+}
+
+func NewFile(file_path string) *file {
+	info, err := os.Stat(file_path)
+	var last_modified time.Time
+	if err != nil {
+		last_modified = time.Now()
+	} else {
+		last_modified = info.ModTime()
+	}
+	return &file{path: file_path, extension: filepath.Ext(file_path), last_modified: last_modified}
+}
 
 type node struct {
 	XMLName xml.Name
@@ -25,11 +43,11 @@ func iterate_xml_nodes(nodes []node, f func(node) bool) {
 	}
 }
 
-func parse_text_file(file_path string) string {
+func (f *file) parse_text() string {
 	var result string
-	data, err := os.ReadFile(file_path)
+	data, err := os.ReadFile(f.path)
 	if err != nil {
-		fmt.Printf("ERROR: cannot read text file '%s'. %s\n", file_path, err)
+		fmt.Printf("ERROR: cannot read text file '%s'. %s\n", f.path, err)
 	} else {
 		result = string(data)
 	}
@@ -45,11 +63,11 @@ func array_contains_string(arr []string, target string) bool {
 	return false
 }
 
-func parse_xml_file(file_path string, strict_mode bool, excluded_tags ...string) string {
+func (f *file) parse_xml(strict_mode bool, excluded_tags ...string) string {
 	var result string
-	data, err := os.ReadFile(file_path)
+	data, err := os.ReadFile(f.path)
 	if err != nil {
-		fmt.Printf("ERROR: cannot read file '%s'. %s\n", file_path, err)
+		fmt.Printf("ERROR: cannot read file '%s'. %s\n", f.path, err)
 	} else {
 		buff := bytes.NewBuffer(data)
 		dec := xml.NewDecoder(buff)
@@ -57,7 +75,7 @@ func parse_xml_file(file_path string, strict_mode bool, excluded_tags ...string)
 		var n node
 		err := dec.Decode(&n)
 		if err != nil {
-			fmt.Printf("ERROR: cannot decode node in file '%s'. %s\n", file_path, err)
+			fmt.Printf("ERROR: cannot decode node in file '%s'. %s\n", f.path, err)
 		} else {
 			iterate_xml_nodes([]node{n}, func(n node) bool {
 				if !array_contains_string(excluded_tags, n.XMLName.Local) {
@@ -74,40 +92,40 @@ func parse_xml_file(file_path string, strict_mode bool, excluded_tags ...string)
 	return result
 }
 
-func parse_pdf_file(file_path string) string {
+func (f *file) parse_pdf() string {
 	// pdf.DebugOn = true
 	var result string
-	f, r, err := pdf.Open(file_path)
+	file, r, err := pdf.Open(f.path)
 	if err != nil {
-		fmt.Printf("ERROR: cannot parse file '%s'. %s\n", file_path, err)
+		fmt.Printf("ERROR: cannot parse file '%s'. %s\n", f.path, err)
 	} else {
 		var buf bytes.Buffer
 		b, err := r.GetPlainText()
 		if err != nil {
-			fmt.Printf("ERROR: cannot get plain text from file '%s'. %s\n", file_path, err)
+			fmt.Printf("ERROR: cannot get plain text from file '%s'. %s\n", f.path, err)
 		} else {
 			buf.ReadFrom(b)
 			result = buf.String()
 		}
 	}
-	f.Close()
+	file.Close()
 	return result
 }
 
-func parse_file_by_extension(file_path string) string {
+// automatically parses file based on its extension
+func (f *file) parse() string {
 	var result string
-	extension := filepath.Ext(file_path)
-	switch extension {
+	switch f.extension {
 	case ".txt", ".md":
-		result = parse_text_file(file_path)
+		result = f.parse_text()
 	case ".xml":
-		result = parse_xml_file(file_path, true)
+		result = f.parse_xml(true)
 	case ".xhtml", ".html", ".htm":
-		result = parse_xml_file(file_path, false, "style", "script")
+		result = f.parse_xml(false, "style", "script")
 	case ".pdf":
-		result = parse_pdf_file(file_path)
+		result = f.parse_pdf()
 	default:
-		fmt.Printf("ERROR: files with extension '%s' are not supported and will be ignored.\n", extension)
+		fmt.Printf("INFO: files with extension '%s' are not supported and will be ignored.\n", f.extension)
 	}
 	return result
 }
