@@ -4,6 +4,8 @@ import (
 	"errors"
 	"strings"
 	"unicode"
+
+	"github.com/kljensen/snowball"
 )
 
 type lexer struct {
@@ -43,7 +45,12 @@ func (l *lexer) next_token() (string, error) {
 	}
 
 	if unicode.IsLetter(rune(l.content[0])) {
-		return strings.ToLower(l.chop_while(unicode.IsLetter)), nil
+		word := strings.ToLower(l.chop_while(unicode.IsLetter))
+		stemmed, err := snowball.Stem(word, "english", true)
+		if err != nil {
+			return word, nil
+		}
+		return stemmed, nil
 	}
 
 	return l.chop(1), nil

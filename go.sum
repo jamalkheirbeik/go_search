@@ -1,3 +1,5 @@
+github.com/kljensen/snowball v0.10.0 h1:8qgaBLraSuUVHtGH5tJ+VdGpqgfcaE2WkswL/C3nVhY=
+github.com/kljensen/snowball v0.10.0/go.mod h1:bJcxtur1W5Qw4fVj9tk5W88zyRcGQQjqahFErdcDTHk=
 github.com/ledongthuc/pdf v0.0.0-20240201131950-da5b75280b06 h1:kacRlPN7EN++tVpGUorNGPn/4DnB7/DfTY82AOn6ccU=
 github.com/ledongthuc/pdf v0.0.0-20240201131950-da5b75280b06/go.mod h1:imJHygn/1yfhB7XSJJKlFZKl/J+dCPAknuiaGOshXAs=
 github.com/mattn/go-sqlite3 v1.14.22 h1:2gZY6PC6kBnID23Tichd1K+Z0oS6nE/XwU+Vz/5o4kU=
