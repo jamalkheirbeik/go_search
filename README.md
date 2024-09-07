@@ -10,31 +10,20 @@ Clone the repository
 git clone https://github.com/jamalkheirbeik/go_search
 ```
 
-Make sure to provide a directory containing (.txt | .md | .pdf | .html | .xml | .xhtml) files to be able to test the application.
+Create directory 'documents' within the project and place your (.txt | .md | .pdf | .html | .xml | .xhtml) files within it (you can include folders as file reading is recursive).
 
-Note: Check main.go file to see all supported file types.
-
-To run the application you can either directly run the main.go file as below:
+You can build the application and run the executable as below:
 
 ```bash
-go run .
-```
-
-or build the application and run the executable as below:
-
-```bash
-go build .
+go build -tags "sqlite_math_functions"
 # choose one based on your OS
 ./go_search.exe   # on windows
 ./go_search       # on linux or mac
 ```
 
-Either way you choose you will encounter an error because we did not provide a subcommand yet.
+The application will start a http server on localhost:8080 and populate the sqlite database concurrently.
 
-To list all the available commands simply run one the following:
+API endpoints:
 
-```bash
-go run . help
-./go_search.exe help   # on windows
-./go_search help       # on linux or mac
-```
+- GET <http://localhost:8080/> returns the main HTML page (to be implemented)
+- GET <http://localhost:8080/search> accepts two params "query" and "page" and returns a list of files ordered by TF-IDF ranking. example usage <http://localhost:8080/search?query=hello&page=1>
