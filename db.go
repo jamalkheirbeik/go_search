@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -28,6 +29,10 @@ type Term struct {
 }
 
 func NewDB() *database {
+	if err := os.MkdirAll("./storage", os.ModePerm); err != nil {
+		fmt.Printf("ERROR: Cannot create directory 'storage'. %s\n", err)
+		os.Exit(1)
+	}
 	const db_path = "./storage/go_search.db"
 	db := database{}
 	conn, err := sql.Open("sqlite3", db_path)
@@ -205,7 +210,7 @@ func (db *database) add_document_and_terms(f *file) {
 	t_stmt.Exec(d_id)
 }
 
-func (db *database) search(query string, page_number int) string {
+func (db *database) search(query string, page_number int) (string, error) {
 	const LIMIT = 10
 	offset := (page_number - 1) * LIMIT
 
@@ -220,6 +225,10 @@ func (db *database) search(query string, page_number int) string {
 			terms += ","
 		}
 		terms += "'" + token + "'"
+	}
+
+	if len(terms) == 0 {
+		return "", errors.New("search query cannot be empty")
 	}
 
 	total_docs_query := "SELECT COUNT(*) FROM documents"
@@ -239,11 +248,7 @@ func (db *database) search(query string, page_number int) string {
 	LIMIT %d OFFSET %d
 	`, total_docs, terms, LIMIT, offset)
 
-	rows, err := db.conn.Query(sql_query)
-	if err != nil {
-		fmt.Println(sql_query)
-		panic(err)
-	}
+	rows, _ := db.conn.Query(sql_query)
 	defer rows.Close()
 
 	var files []string
@@ -260,5 +265,5 @@ func (db *database) search(query string, page_number int) string {
 		files = append(files, file_path)
 	}
 	b, _ := json.Marshal(files)
-	return string(b)
+	return string(b), nil
 }
