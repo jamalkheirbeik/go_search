@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 )
 
 type server struct {
@@ -25,17 +24,21 @@ func (s *server) handle_request(w http.ResponseWriter, r *http.Request) {
 		case "/":
 			fmt.Fprintf(w, "GET: index")
 		case "/search":
-			query := strings.Trim(r.FormValue("query"), " \r\n\t")
+			query := r.FormValue("query")
 			page, _ := strconv.Atoi(r.FormValue("page"))
-			if len(query) == 0 {
-				fmt.Fprint(w, "Search query cannot be empty")
-				break
+			data, err := s.db.search(query, page)
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprint(w, err)
+			} else {
+				fmt.Fprint(w, data)
 			}
-			fmt.Fprint(w, s.db.search(query, page))
 		default:
+			w.WriteHeader(http.StatusNotFound)
 			fmt.Fprintf(w, "404 not found")
 		}
 	default:
+		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "404 not found")
 	}
 }
