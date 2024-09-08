@@ -1,10 +1,15 @@
 package main
 
+import (
+	"github.com/jamalkheirbeik/go_search/src/database"
+	"github.com/jamalkheirbeik/go_search/src/server"
+)
+
 func main() {
-	db := NewDB()
-	db.generate_tables()
-	defer db.disconnect()
-	go db.add_dir_files("documents")
-	s := NewServer(db)
-	s.serve(":8080")
+	db := database.NewDB()
+	db.Generate_tables()
+	defer db.Disconnect()
+	go db.Add_dir_files("documents")
+	s := server.NewServer(db)
+	s.Serve(":8080")
 }

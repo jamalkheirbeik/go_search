@@ -1,4 +1,4 @@
-package main
+package database
 
 import (
 	"database/sql"
@@ -8,10 +8,12 @@ import (
 	"os"
 	"time"
 
+	"github.com/jamalkheirbeik/go_search/src/lexer"
+	"github.com/jamalkheirbeik/go_search/src/parser"
 	_ "github.com/mattn/go-sqlite3"
 )
 
-type database struct {
+type Database struct {
 	conn *sql.DB
 }
 
@@ -28,13 +30,13 @@ type Term struct {
 	df   int64
 }
 
-func NewDB() *database {
+func NewDB() *Database {
 	if err := os.MkdirAll("./storage", os.ModePerm); err != nil {
 		fmt.Printf("ERROR: Cannot create directory 'storage'. %s\n", err)
 		os.Exit(1)
 	}
 	const db_path = "./storage/go_search.db"
-	db := database{}
+	db := Database{}
 	conn, err := sql.Open("sqlite3", db_path)
 	if err != nil {
 		fmt.Printf("ERROR: Cannot open database '%s'. %s\n", db_path, err)
@@ -45,14 +47,14 @@ func NewDB() *database {
 	return &db
 }
 
-func (db *database) disconnect() {
+func (db *Database) Disconnect() {
 	err := db.conn.Close()
 	if err != nil {
 		fmt.Printf("ERROR: Cannot close database connection. %s\n", err)
 	}
 }
 
-func (db *database) generate_tables() {
+func (db *Database) Generate_tables() {
 	d_query := "CREATE TABLE IF NOT EXISTS documents (id INTEGER PRIMARY KEY, file_path VARCHAR UNIQUE NOT NULL, entries INTEGER DEFAULT 0, last_modified TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
 	d_stmt, _ := db.conn.Prepare(d_query)
 	defer d_stmt.Close()
@@ -88,7 +90,7 @@ func (db *database) generate_tables() {
 	}
 }
 
-func (db *database) add_dir_files(directory string) {
+func (db *Database) Add_dir_files(directory string) {
 	entries, err := os.ReadDir(directory)
 	if err != nil {
 		fmt.Printf("ERROR: Cannot read files in directory '%s'. %s\n", directory, err)
@@ -96,14 +98,14 @@ func (db *database) add_dir_files(directory string) {
 	}
 	for _, entry := range entries {
 		if entry.IsDir() {
-			db.add_dir_files(directory + "/" + entry.Name())
+			db.Add_dir_files(directory + "/" + entry.Name())
 		} else {
 			file_path := directory + "/" + entry.Name()
-			f := NewFile(file_path)
-			fmt.Printf("INFO: Indexing file '%s'...\n", f.path)
+			f := parser.NewFile(file_path)
+			fmt.Printf("INFO: Indexing file '%s'...\n", f.Path)
 			document := db.get_document(f)
 
-			if f.last_modified.After(document.last_modified) {
+			if f.Last_modified.After(document.last_modified) {
 				db.soft_delete_document_cascade(f)
 				db.add_document_and_terms(f)
 			}
@@ -111,15 +113,15 @@ func (db *database) add_dir_files(directory string) {
 	}
 }
 
-func (db *database) get_document(f *file) Document {
+func (db *Database) get_document(f *parser.File) Document {
 	query := "SELECT * FROM documents WHERE file_path = ?"
-	row := db.conn.QueryRow(query, f.path)
+	row := db.conn.QueryRow(query, f.Path)
 	var d Document
 	row.Scan(&d.id, &d.file_path, &d.entries, &d.last_modified)
 	return d
 }
 
-func (db *database) get_term(term string) Term {
+func (db *Database) get_term(term string) Term {
 	query := "SELECT * FROM terms WHERE term = ?"
 	row := db.conn.QueryRow(query, term)
 	var t Term
@@ -127,7 +129,7 @@ func (db *database) get_term(term string) Term {
 	return t
 }
 
-func (db *database) insert_term(term string) int64 {
+func (db *Database) insert_term(term string) int64 {
 	t := db.get_term(term)
 	if t.id > 0 {
 		return t.id
@@ -140,7 +142,7 @@ func (db *database) insert_term(term string) int64 {
 	return id
 }
 
-func (db *database) insert_document(f *file) int64 {
+func (db *Database) insert_document(f *parser.File) int64 {
 	d := db.get_document(f)
 	if d.id > 0 {
 		return d.id
@@ -148,12 +150,12 @@ func (db *database) insert_document(f *file) int64 {
 	query := "INSERT INTO documents(file_path, last_modified) VALUES(?, ?)"
 	stmt, _ := db.conn.Prepare(query)
 	defer stmt.Close()
-	res, _ := stmt.Exec(f.path, f.last_modified)
+	res, _ := stmt.Exec(f.Path, f.Last_modified)
 	id, _ := res.LastInsertId()
 	return id
 }
 
-func (db *database) insert_term_doc(term_id int64, doc_id int64) {
+func (db *Database) insert_term_doc(term_id int64, doc_id int64) {
 	query := `INSERT INTO term_doc(t_id, d_id) VALUES(?, ?)
 		ON CONFLICT(t_id, d_id) DO UPDATE SET frequency = frequency + 1`
 	stmt, _ := db.conn.Prepare(query)
@@ -161,7 +163,7 @@ func (db *database) insert_term_doc(term_id int64, doc_id int64) {
 	stmt.Exec(term_id, doc_id)
 }
 
-func (db *database) soft_delete_document_cascade(f *file) {
+func (db *Database) soft_delete_document_cascade(f *parser.File) {
 	d := db.get_document(f)
 	if d.id == 0 {
 		return
@@ -182,15 +184,15 @@ func (db *database) soft_delete_document_cascade(f *file) {
 	td_stmt.Exec(d.id)
 }
 
-func (db *database) add_document_and_terms(f *file) {
-	l := lexer{f.parse()}
-	if len(l.content) == 0 {
+func (db *Database) add_document_and_terms(f *parser.File) {
+	l := lexer.Lexer{Content: f.Parse()}
+	if len(l.Content) == 0 {
 		return
 	}
 	d_id := db.insert_document(f)
 	entries := 0
-	for len(l.content) > 0 {
-		token, err := l.next_token()
+	for len(l.Content) > 0 {
+		token, err := l.Next_token()
 		if err != nil {
 			continue
 		}
@@ -210,14 +212,14 @@ func (db *database) add_document_and_terms(f *file) {
 	t_stmt.Exec(d_id)
 }
 
-func (db *database) search(query string, page_number int) (string, error) {
+func (db *Database) Search(query string, page_number int) (string, error) {
 	const LIMIT = 10
 	offset := (page_number - 1) * LIMIT
 
 	var terms string
-	l := lexer{content: query}
-	for len(l.content) > 0 {
-		token, err := l.next_token()
+	l := lexer.Lexer{Content: query}
+	for len(l.Content) > 0 {
+		token, err := l.Next_token()
 		if err != nil {
 			continue
 		}

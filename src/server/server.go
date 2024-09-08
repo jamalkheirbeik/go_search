@@ -1,16 +1,18 @@
-package main
+package server
 
 import (
 	"fmt"
 	"net/http"
 	"strconv"
+
+	"github.com/jamalkheirbeik/go_search/src/database"
 )
 
 type server struct {
-	db *database
+	db *database.Database
 }
 
-func NewServer(db *database) *server {
+func NewServer(db *database.Database) *server {
 	s := server{db: db}
 	return &s
 }
@@ -26,7 +28,7 @@ func (s *server) handle_request(w http.ResponseWriter, r *http.Request) {
 		case "/search":
 			query := r.FormValue("query")
 			page, _ := strconv.Atoi(r.FormValue("page"))
-			data, err := s.db.search(query, page)
+			data, err := s.db.Search(query, page)
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)
 				fmt.Fprint(w, err)
@@ -43,7 +45,7 @@ func (s *server) handle_request(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *server) serve(port string) {
+func (s *server) Serve(port string) {
 	fmt.Printf("INFO: Server running on http://localhost:%s\n", port)
 	http.HandleFunc("/", s.handle_request)
 	http.ListenAndServe(port, nil)
