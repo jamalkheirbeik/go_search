@@ -10,6 +10,6 @@ func main() {
 	db.Generate_tables()
 	defer db.Disconnect()
 	go db.Add_dir_files("documents")
-	s := server.NewServer(db)
-	s.Serve(":8080")
+	s := server.NewServer(db, ":8080")
+	s.Serve()
 }

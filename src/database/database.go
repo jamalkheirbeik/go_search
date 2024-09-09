@@ -2,7 +2,6 @@ package database
 
 import (
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -28,6 +27,17 @@ type Term struct {
 	id   int64
 	term string
 	df   int64
+}
+
+type SearchResult struct {
+	Pages int64       `json:"pages"`
+	Data  []SearchRow `json:"data"`
+}
+
+type SearchRow struct {
+	File_path string `json:"file_path"`
+	ranking   float64
+	pages     int64
 }
 
 func NewDB() *Database {
@@ -163,6 +173,20 @@ func (db *Database) insert_term_doc(term_id int64, doc_id int64) {
 	stmt.Exec(term_id, doc_id)
 }
 
+func (db *Database) update_document_entries(id int64, entries int64) {
+	query := "UPDATE documents SET entries = ? WHERE id = ?"
+	stmt, _ := db.conn.Prepare(query)
+	defer stmt.Close()
+	stmt.Exec(entries, id)
+}
+
+func (db *Database) update_terms_df(id int64) {
+	query := "UPDATE terms SET df = df + 1 WHERE id IN (SELECT t_id FROM term_doc WHERE d_id = ? AND frequency > 0)"
+	stmt, _ := db.conn.Prepare(query)
+	defer stmt.Close()
+	stmt.Exec(id)
+}
+
 func (db *Database) soft_delete_document_cascade(f *parser.File) {
 	d := db.get_document(f)
 	if d.id == 0 {
@@ -190,7 +214,7 @@ func (db *Database) add_document_and_terms(f *parser.File) {
 		return
 	}
 	d_id := db.insert_document(f)
-	entries := 0
+	var entries int64 = 0
 	for len(l.Content) > 0 {
 		token, err := l.Next_token()
 		if err != nil {
@@ -200,20 +224,13 @@ func (db *Database) add_document_and_terms(f *parser.File) {
 		db.insert_term_doc(t_id, d_id)
 		entries++
 	}
-	// update document entries
-	d_query := "UPDATE documents SET entries = ? WHERE id = ?"
-	d_stmt, _ := db.conn.Prepare(d_query)
-	defer d_stmt.Close()
-	d_stmt.Exec(entries, d_id)
-	// update terms df
-	t_query := "UPDATE terms SET df = df + 1 WHERE id IN (SELECT t_id FROM term_doc WHERE d_id = ? AND frequency > 0)"
-	t_stmt, _ := db.conn.Prepare(t_query)
-	defer t_stmt.Close()
-	t_stmt.Exec(d_id)
+	db.update_document_entries(d_id, entries)
+	db.update_terms_df(d_id)
 }
 
-func (db *Database) Search(query string, page_number int) (string, error) {
+func (db *Database) Search(query string, page_number int) (SearchResult, error) {
 	const LIMIT = 10
+	result := SearchResult{Pages: 0, Data: make([]SearchRow, 0)}
 	offset := (page_number - 1) * LIMIT
 
 	var terms string
@@ -230,7 +247,7 @@ func (db *Database) Search(query string, page_number int) (string, error) {
 	}
 
 	if len(terms) == 0 {
-		return "", errors.New("search query cannot be empty")
+		return result, errors.New("search query cannot be empty")
 	}
 
 	total_docs_query := "SELECT COUNT(*) FROM documents"
@@ -240,32 +257,29 @@ func (db *Database) Search(query string, page_number int) (string, error) {
 
 	sql_query := fmt.Sprintf(`
 	SELECT	d.file_path,
-			SUM(CAST(td.frequency AS FLOAT) / d.entries * LOG(%d / t.df)) RANK
+			SUM(CAST(td.frequency AS FLOAT) / d.entries * LOG(%d / t.df)) ranking,
+			CAST(CEIL(COUNT(*) OVER () / CAST(%d AS FLOAT)) AS INTERGER) pages
 	FROM terms t
 	INNER JOIN term_doc td ON t.id = td.t_id
 	INNER JOIN documents d ON td.d_id = d.id
 	WHERE t.term in (%s) AND td.frequency > 0
 	GROUP BY d.file_path
-	ORDER BY RANK DESC
+	ORDER BY ranking DESC
 	LIMIT %d OFFSET %d
-	`, total_docs, terms, LIMIT, offset)
+	`, total_docs, LIMIT, terms, LIMIT, offset)
 
 	rows, _ := db.conn.Query(sql_query)
 	defer rows.Close()
 
-	var files []string
 	for rows.Next() {
-		var (
-			file_path string
-			rank      float64
-		)
-		err := rows.Scan(&file_path, &rank)
+		var row SearchRow
+		err := rows.Scan(&row.File_path, &row.ranking, &row.pages)
 		if err != nil {
 			panic(err)
 		}
-		fmt.Printf("    %s => %f\n", file_path, rank)
-		files = append(files, file_path)
+		fmt.Printf("    %s => %f\n", row.File_path, row.ranking)
+		result.Pages = row.pages
+		result.Data = append(result.Data, row)
 	}
-	b, _ := json.Marshal(files)
-	return string(b), nil
+	return result, nil
 }

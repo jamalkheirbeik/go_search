@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -9,11 +10,12 @@ import (
 )
 
 type server struct {
-	db *database.Database
+	db   *database.Database
+	port string
 }
 
-func NewServer(db *database.Database) *server {
-	s := server{db: db}
+func NewServer(db *database.Database, port string) *server {
+	s := server{db: db, port: port}
 	return &s
 }
 
@@ -33,7 +35,13 @@ func (s *server) handle_request(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusBadRequest)
 				fmt.Fprint(w, err)
 			} else {
-				fmt.Fprint(w, data)
+				b, err := json.Marshal(data)
+				if err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					fmt.Fprint(w, "500 Internal server error")
+				} else {
+					fmt.Fprint(w, string(b))
+				}
 			}
 		default:
 			w.WriteHeader(http.StatusNotFound)
@@ -45,8 +53,8 @@ func (s *server) handle_request(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *server) Serve(port string) {
-	fmt.Printf("INFO: Server running on http://localhost:%s\n", port)
+func (s *server) Serve() {
+	fmt.Printf("INFO: Server running on http://localhost:%s\n", s.port)
 	http.HandleFunc("/", s.handle_request)
-	http.ListenAndServe(port, nil)
+	http.ListenAndServe(s.port, nil)
 }
